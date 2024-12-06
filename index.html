@@ -197,6 +197,104 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .repair-tools {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+
+        .repair-option {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.3s;
+            cursor: pointer;
+        }
+
+        .repair-option:hover {
+            background: rgba(0, 113, 227, 0.1);
+        }
+
+        .repair-option.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .brush-preview {
+            position: absolute;
+            pointer-events: none;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s;
+        }
+
+        .processing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .processing-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .processing-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 300px;
+            height: 4px;
+            background: #eee;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
@@ -264,12 +362,36 @@
         </div>
     </div>
 
-    <div class="deploy-section" style="margin-top: 20px; text-align: center;">
-        <h3>部署到GitHub</h3>
-        <input type="text" id="githubToken" placeholder="输入GitHub Token" style="width: 300px;">
-        <input type="text" id="repoName" placeholder="输入仓库名称" value="image-tools" style="width: 200px;">
-        <button onclick="deployToGithub()" class="tool-button">一键部署到GitHub</button>
-        <div id="deployMessage" style="margin-top: 10px;"></div>
+    <div class="repair-tools">
+        <div class="repair-option" data-tool="smart-repair">
+            <i class="fas fa-magic"></i> 智能修复
+        </div>
+        <div class="repair-option" data-tool="texture-clone">
+            <i class="fas fa-clone"></i> 纹理克隆
+        </div>
+        <div class="repair-option" data-tool="edge-repair">
+            <i class="fas fa-border-style"></i> 边缘修复
+        </div>
+        <div class="control-group">
+            <label>画笔大小</label>
+            <input type="range" id="brushSize" min="5" max="100" value="20">
+            <span id="brushSizeValue">20px</span>
+        </div>
+        <div class="control-group">
+            <label>修复强度</label>
+            <input type="range" id="repairStrength" min="1" max="100" value="50">
+            <span id="strengthValue">50%</span>
+        </div>
+    </div>
+
+    <div class="processing-overlay">
+        <div class="processing-card">
+            <h3>正在处理...</h3>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <p class="progress-text">0%</p>
+        </div>
     </div>
 
     <script>
@@ -405,7 +527,7 @@
                 canvas.width = newWidth;
                 canvas.height = newHeight;
 
-                // 绘制图片
+                // 绘制图
                 ctx.drawImage(imageObj.original, 0, 0, newWidth, newHeight);
 
                 // 下载处理后的图片
@@ -439,7 +561,7 @@
             // 保存初始状态
             editHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
             
-            // 启用按钮
+            // 启按钮
             document.getElementById('undoButton').disabled = false;
             document.getElementById('saveButton').disabled = false;
 
@@ -538,97 +660,6 @@
             setTimeout(() => {
                 shareMessage.style.display = 'none';
             }, 2000);
-        }
-
-        async function deployToGithub() {
-            const token = document.getElementById('githubToken').value;
-            const repoName = document.getElementById('repoName').value;
-            const deployMessage = document.getElementById('deployMessage');
-            
-            if (!token) {
-                deployMessage.innerHTML = '请输入GitHub Token！<br>获取Token: <a href="https://github.com/settings/tokens" target="_blank">https://github.com/settings/tokens</a>';
-                deployMessage.style.color = 'red';
-                return;
-            }
-
-            try {
-                deployMessage.innerHTML = '正在部署...';
-                deployMessage.style.color = '#666';
-
-                // 1. 获取当前页面的HTML内容
-                const content = document.documentElement.outerHTML;
-                const encodedContent = btoa(unescape(encodeURIComponent(content)));
-
-                // 2. 创建仓库
-                const createRepoResponse = await fetch('https://api.github.com/user/repos', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: repoName,
-                        auto_init: true,
-                        private: false,
-                        description: '批量图片处理工具'
-                    })
-                });
-
-                if (!createRepoResponse.ok && createRepoResponse.status !== 422) {
-                    throw new Error('创建仓库失败');
-                }
-
-                // 3. 获取用户信息
-                const userResponse = await fetch('https://api.github.com/user', {
-                    headers: {
-                        'Authorization': `token ${token}`
-                    }
-                });
-                const userData = await userResponse.json();
-                const username = userData.login;
-
-                // 4. 上传文件
-                const uploadResponse = await fetch(`https://api.github.com/repos/${username}/${repoName}/contents/index.html`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: 'Initial commit',
-                        content: encodedContent
-                    })
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error('上传文件失败');
-                }
-
-                // 5. 启用GitHub Pages
-                const pagesResponse = await fetch(`https://api.github.com/repos/${username}/${repoName}/pages`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.switcheroo-preview+json',
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        source: {
-                            branch: 'main',
-                            path: '/'
-                        }
-                    })
-                });
-
-                const pageUrl = `https://${username}.github.io/${repoName}/`;
-                deployMessage.innerHTML = `部署成功！<br>访问地址：<a href="${pageUrl}" target="_blank">${pageUrl}</a>`;
-                deployMessage.style.color = '#4CAF50';
-
-            } catch (error) {
-                console.error('部署错误:', error);
-                deployMessage.innerHTML = '部署失败：' + error.message;
-                deployMessage.style.color = 'red';
-            }
         }
 
         // 添加背景采样初始化函数
@@ -745,6 +776,178 @@
 
             return sum.map(v => Math.round(v / colors.length));
         }
+
+        // 添加新的修复工具管理器
+        class RepairToolManager {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.currentTool = 'smart-repair';
+                this.isProcessing = false;
+                this.brushSize = 20;
+                this.strength = 0.5;
+                this.initializeTools();
+            }
+
+            initializeTools() {
+                this.tools = {
+                    'smart-repair': new SmartRepairTool(this),
+                    'texture-clone': new TextureCloneTool(this),
+                    'edge-repair': new EdgeRepairTool(this)
+                };
+                
+                this.setupEventListeners();
+                this.createOverlayCanvas();
+            }
+
+            createOverlayCanvas() {
+                this.overlay = document.createElement('canvas');
+                this.overlay.className = 'overlay-canvas';
+                this.overlay.width = this.canvas.width;
+                this.overlay.height = this.canvas.height;
+                this.canvas.parentElement.appendChild(this.overlay);
+            }
+
+            setupEventListeners() {
+                document.querySelectorAll('.repair-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        this.setTool(option.dataset.tool);
+                    });
+                });
+
+                // 添加画笔大小和强度控制
+                document.getElementById('brushSize').addEventListener('input', (e) => {
+                    this.brushSize = parseInt(e.target.value);
+                    document.getElementById('brushSizeValue').textContent = `${this.brushSize}px`;
+                    this.updateBrushPreview();
+                });
+
+                document.getElementById('repairStrength').addEventListener('input', (e) => {
+                    this.strength = parseInt(e.target.value) / 100;
+                    document.getElementById('strengthValue').textContent = `${e.target.value}%`;
+                });
+            }
+
+            setTool(toolName) {
+                if (this.isProcessing) return;
+                
+                document.querySelectorAll('.repair-option').forEach(option => {
+                    option.classList.toggle('active', option.dataset.tool === toolName);
+                });
+
+                this.currentTool = toolName;
+                this.tools[toolName].activate();
+            }
+
+            async process(x, y) {
+                if (this.isProcessing) return;
+                
+                this.isProcessing = true;
+                this.showProcessingUI();
+
+                try {
+                    await this.tools[this.currentTool].process(x, y);
+                } catch (error) {
+                    console.error('处理失败:', error);
+                } finally {
+                    this.isProcessing = false;
+                    this.hideProcessingUI();
+                }
+            }
+
+            showProcessingUI() {
+                document.querySelector('.processing-overlay').classList.add('active');
+            }
+
+            hideProcessingUI() {
+                document.querySelector('.processing-overlay').classList.remove('active');
+            }
+
+            updateProgress(progress) {
+                document.querySelector('.progress-fill').style.width = `${progress * 100}%`;
+                document.querySelector('.progress-text').textContent = `${Math.round(progress * 100)}%`;
+            }
+        }
+
+        // 智能修复工具类
+        class SmartRepairTool {
+            constructor(manager) {
+                this.manager = manager;
+                this.initializeShaders();
+            }
+
+            async process(x, y) {
+                const ctx = this.manager.ctx;
+                const brushSize = this.manager.brushSize;
+                const strength = this.manager.strength;
+
+                // 获取修复区域
+                const area = this.getRepairArea(x, y, brushSize);
+                
+                // 创建修复蒙版
+                const mask = await this.createRepairMask(area, x, y, brushSize);
+                
+                // 执行修复
+                await this.executeRepair(ctx, area, mask, strength);
+            }
+
+            async executeRepair(ctx, area, mask, strength) {
+                // 使用 WebGL 进行快速处理
+                const gl = this.gl;
+                
+                // 设置纹理和uniforms
+                this.setupTextures(gl, ctx, area);
+                
+                // 执行修复着色器
+                gl.uniform1f(this.strengthLocation, strength);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                
+                // 读取结果并应用到画布
+                this.applyResult(gl, ctx, area);
+            }
+        }
+
+        // 纹理克隆工具类
+        class TextureCloneTool {
+            constructor(manager) {
+                this.manager = manager;
+                this.sourcePoint = null;
+            }
+
+            activate() {
+                this.manager.canvas.style.cursor = 'crosshair';
+            }
+
+            async process(x, y) {
+                if (!this.sourcePoint) {
+                    this.sourcePoint = { x, y };
+                    return;
+                }
+
+                // 执行纹理克隆
+                await this.cloneTexture(this.sourcePoint, { x, y });
+                this.sourcePoint = null;
+            }
+        }
+
+        // 边缘修复工具类
+        class EdgeRepairTool {
+            constructor(manager) {
+                this.manager = manager;
+            }
+
+            async process(x, y) {
+                const ctx = this.manager.ctx;
+                const brushSize = this.manager.brushSize;
+                
+                // 检测和修复边缘
+                await this.repairEdges(ctx, x, y, brushSize);
+            }
+        }
+
+        // 初始化工具管理器
+        const canvas = document.getElementById('editCanvas');
+        const repairManager = new RepairToolManager(canvas);
     </script>
 </body>
 </html>
