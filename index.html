@@ -330,14 +330,20 @@
         }
 
         .tool-btn {
-            padding: 10px;
+            padding: 10px 20px;
             border: 1px solid #ddd;
             border-radius: 6px;
             background: white;
             cursor: pointer;
             transition: all 0.2s;
-            text-align: left;
+            text-align: center;
             font-size: 14px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .tool-btn:hover {
+            background: rgba(0, 113, 227, 0.1);
         }
 
         .tool-btn.active {
@@ -364,6 +370,45 @@
         }
 
         .slider-group input[type="range"] {
+            flex: 1;
+        }
+
+        .value {
+            min-width: 45px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .primary-btn {
+            grid-column: 1 / -1;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .secondary-btn {
+            background: white;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .secondary-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -374,44 +419,53 @@
 
     <div class="container">
         <div class="tools-container">
-            <div class="tool-card">
-                <h3>图片尺寸调整</h3>
-                <div class="control-group">
-                    <label>比例：</label>
-                    <select id="aspectRatio" class="button secondary">
-                        <option value="1:1">1:1 正方形</option>
-                        <option value="3:4">3:4 竖向</option>
-                        <option value="custom">自定义</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>最大尺寸：</label>
-                    <input type="number" id="sizeValue" value="900" min="1" max="10000" class="button secondary">
-                    <span>px</span>
+            <div class="left-panel">
+                <div class="tool-section">
+                    <h3>智能修复工具</h3>
+                    <div class="repair-tools">
+                        <button class="tool-btn" onclick="switchTool('smart-repair')" id="smart-repair-btn">智能修复</button>
+                        <button class="tool-btn" onclick="switchTool('texture-clone')" id="texture-clone-btn">纹理克隆</button>
+                        <button class="tool-btn" onclick="switchTool('edge-repair')" id="edge-repair-btn">边缘修复</button>
+                    </div>
+                    <div class="slider-control">
+                        <label>画笔大小</label>
+                        <div class="slider-group">
+                            <input type="range" id="brushSize" min="1" max="100" value="20">
+                            <span class="value">20px</span>
+                        </div>
+                    </div>
+                    <div class="slider-control">
+                        <label>修复强度</label>
+                        <div class="slider-group">
+                            <input type="range" id="repairStrength" min="1" max="100" value="50">
+                            <span class="value">50%</span>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button id="editButton" class="primary-btn">开始编辑</button>
+                        <button id="undoButton" class="secondary-btn" disabled>撤销</button>
+                        <button id="saveButton" class="secondary-btn" disabled>保存</button>
+                    </div>
                 </div>
             </div>
 
-            <div class="tool-card">
-                <h3>智能修复工具</h3>
-                <div class="repair-options">
-                    <button class="button repair-option" data-tool="smart-repair">智能修复</button>
-                    <button class="button repair-option" data-tool="texture-clone">纹理克隆</button>
-                    <button class="button repair-option" data-tool="edge-repair">边缘修复</button>
-                </div>
-                <div class="control-group">
-                    <label>画笔大小</label>
-                    <input type="range" id="repairBrushSize" min="5" max="100" value="20">
-                    <span id="repairBrushSizeValue">20px</span>
-                </div>
-                <div class="control-group">
-                    <label>修复强度</label>
-                    <input type="range" id="repairStrength" min="1" max="100" value="50">
-                    <span id="strengthValue">50%</span>
-                </div>
-                <div class="control-group">
-                    <button id="editButton" class="button">开始编辑</button>
-                    <button id="undoButton" class="button secondary" disabled>撤销</button>
-                    <button id="saveButton" class="button secondary" disabled>保存</button>
+            <div class="right-panel">
+                <div class="tool-section">
+                    <h3>尺寸调整</h3>
+                    <div class="size-control">
+                        <label>比例</label>
+                        <select id="aspectRatio">
+                            <option value="1:1">1:1 正方形</option>
+                            <option value="3:4">3:4 竖向</option>
+                        </select>
+                    </div>
+                    <div class="size-control">
+                        <label>最大尺寸</label>
+                        <div class="input-group">
+                            <input type="number" id="sizeValue" value="900" min="1" max="10000">
+                            <span>px</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -543,9 +597,9 @@
         });
 
         // 画笔大小滑块事件
-        document.getElementById('repairBrushSize').addEventListener('input', function(e) {
+        document.getElementById('brushSize').addEventListener('input', function(e) {
             const value = e.target.value;
-            document.getElementById('repairBrushSizeValue').textContent = `${value}px`;
+            document.getElementById('brushSizeValue').textContent = `${value}px`;
             repairManager.brushSize = parseInt(value);
         });
 
@@ -611,7 +665,7 @@
             canvas.height = image.height;
             ctx.drawImage(image, 0, 0);
 
-            // 保存原始图像数据
+            // 保存初始图像数据
             originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
             // 初始化背景采样
@@ -721,7 +775,7 @@
             }, 2000);
         }
 
-        // 添加背景采样初始化函数
+        // 添加��景采样初始化函数
         function initBackgroundSamples(imageData) {
             const data = imageData.data;
             const width = imageData.width;
@@ -890,12 +944,27 @@
             setTool(toolName) {
                 if (this.isProcessing) return;
                 
-                document.querySelectorAll('.repair-option').forEach(option => {
-                    option.classList.toggle('active', option.dataset.tool === toolName);
-                });
-
                 this.currentTool = toolName;
-                this.tools[toolName].activate();
+                
+                // 更新工具状态
+                if (this.tools[toolName]) {
+                    this.tools[toolName].activate();
+                }
+                
+                // 更新画布状态
+                this.updateCanvasState();
+            }
+
+            updateCanvasState() {
+                // 根据不同工具设置不同的画布状态
+                switch(this.currentTool) {
+                    case 'texture-clone':
+                        this.canvas.style.cursor = 'crosshair';
+                        break;
+                    default:
+                        this.canvas.style.cursor = 'default';
+                        break;
+                }
             }
 
             async process(x, y) {
@@ -1017,6 +1086,40 @@
                 this.classList.add('active');
                 repairManager.setTool(this.dataset.tool);
             });
+        });
+
+        let currentTool = 'smart-repair';
+
+        function switchTool(toolName) {
+            // 移除所有工具按钮的active类
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 给当前选中的工具按钮添加active类
+            document.getElementById(`${toolName}-btn`).classList.add('active');
+            
+            // 更新当前工具
+            currentTool = toolName;
+            
+            // 更新画布的鼠标样式
+            const canvas = document.getElementById('editCanvas');
+            canvas.style.cursor = toolName === 'texture-clone' ? 'crosshair' : 'default';
+            
+            // 更新工具管理器的当前工具
+            if (repairManager) {
+                repairManager.setTool(toolName);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认工具为智能修复
+            document.getElementById('smart-repair-btn').classList.add('active');
+            
+            // 初始化工具管理器
+            const canvas = document.getElementById('editCanvas');
+            const repairManager = new RepairToolManager(canvas);
+            repairManager.initialize();
         });
     </script>
 </body>
