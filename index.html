@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量图片处理工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .options {
+            margin-bottom: 20px;
+        }
+        .preview-area {
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .preview-item {
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 5px;
+        }
+        .preview-item img {
+            max-width: 100%;
+            height: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .watermark-options {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ddd;
+            display: inline-block;
+            vertical-align: middle;
+            cursor: pointer;
+        }
+        .tolerance-slider {
+            width: 200px;
+            margin: 0 10px;
+        }
+        .canvas-container {
+            position: relative;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            display: inline-block;
+        }
+        #editCanvas {
+            cursor: crosshair;
+        }
+        .edit-tools {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .brush-size {
+            width: 150px;
+            margin: 0 10px;
+        }
+        .tool-button {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tool-button.active {
+            background-color: #45a049;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+        }
+        .watermark-advanced {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        .algorithm-select {
+            width: 100%;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>批量图片处理工具</h1>
+        
+        <div class="options">
+            <h3>图片设置</h3>
+            <div>
+                <label>比例选择：</label>
+                <select id="aspectRatio">
+                    <option value="1:1">1:1 (正方形)</option>
+                    <option value="3:4">3:4 (竖向)</option>
+                </select>
+            </div>
+            <div>
+                <label>最大尺寸限制：</label>
+                <input type="number" id="sizeValue" value="900" min="1" max="10000"> px
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    (图片的长边将被限制在这个尺寸以内)
+                </div>
+            </div>
+
+            <div class="watermark-options">
+                <h3>去水印设置</h3>
+                <div>
+                    <label>
+                        <input type="checkbox" id="enableWatermarkRemoval"> 启用去水印
+                    </label>
+                </div>
+                <div id="watermarkSettings" style="display: none;">
+                    <div>
+                        <label>处理算法：</label>
+                        <select id="watermarkAlgorithm" class="algorithm-select">
+                            <option value="simple">简单颜色匹配</option>
+                            <option value="pattern">图案水印检测</option>
+                            <option value="gradient">渐变水印处理</option>
+                            <option value="content-aware">智能内容填充</option>
+                        </select>
+                    </div>
+                    <div class="watermark-advanced" id="advancedSettings">
+                        <div>
+                            <label>检测灵敏度：</label>
+                            <input type="range" id="sensitivity" min="1" max="100" value="50">
+                            <span id="sensitivityValue">50</span>%
+                        </div>
+                        <div>
+                            <label>采样区域大小：</label>
+                            <input type="number" id="sampleSize" min="8" max="64" value="16"> px
+                        </div>
+                        <div>
+                            <label>修复强度：</label>
+                            <input type="range" id="repairStrength" min="1" max="100" value="50">
+                            <span id="repairValue">50</span>%
+                        </div>
+                    </div>
+                    <div>
+                        <label>水印颜色：</label>
+                        <input type="color" id="watermarkColor" value="#ffffff">
+                        <div class="color-preview" id="colorPreview"></div>
+                    </div>
+                    <div>
+                        <label>颜色容差：</label>
+                        <input type="range" id="colorTolerance" class="tolerance-slider" 
+                               min="0" max="100" value="30">
+                        <span id="toleranceValue">30</span>%
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="edit-tools">
+            <h3>瑕疵修复工具</h3>
+            <div>
+                <button id="editButton" class="tool-button">开始编辑</button>
+                <button id="undoButton" class="tool-button" disabled>撤销</button>
+                <button id="saveButton" class="tool-button" disabled>保存修改</button>
+            </div>
+            <div>
+                <label>画笔大小：</label>
+                <input type="range" id="brushSize" class="brush-size" 
+                       min="1" max="50" value="10">
+                <span id="brushSizeValue">10</span>px
+            </div>
+        </div>
+
+        <div id="canvasContainer" class="canvas-container" style="display: none;">
+            <canvas id="editCanvas"></canvas>
+        </div>
+
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <button onclick="processImages()">处理图片</button>
+        
+        <div id="previewArea" class="preview-area"></div>
+    </div>
+
+    <div class="share-section" style="margin-top: 20px; text-align: center;">
+        <h3>分享工具</h3>
+        <button id="copyLinkBtn" onclick="copyCurrentLink()" class="tool-button">
+            复制分享链接
+        </button>
+        <div id="shareMessage" style="display: none; margin-top: 10px; color: #4CAF50;">
+            链接已复制到剪贴板！
+        </div>
+    </div>
+
+    <script>
+        let images = [];
+        let isEditing = false;
+        let currentImage = null;
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        const editHistory = [];
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            const previewArea = document.getElementById('previewArea');
+            previewArea.innerHTML = '';
+            images = [];
+
+            for (let file of files) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.src = e.target.result;
+                        img.onload = function() {
+                            images.push({
+                                original: img,
+                                file: file
+                            });
+                            
+                            const previewItem = document.createElement('div');
+                            previewItem.className = 'preview-item';
+                            previewItem.innerHTML = `
+                                <img src="${e.target.result}">
+                                <div>尺寸: ${img.width} x ${img.height}px</div>
+                            `;
+                            previewArea.appendChild(previewItem);
+                        };
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+
+        // 添加去水印相关的事件监听
+        document.getElementById('enableWatermarkRemoval').addEventListener('change', function(e) {
+            document.getElementById('watermarkSettings').style.display = 
+                e.target.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('colorTolerance').addEventListener('input', function(e) {
+            document.getElementById('toleranceValue').textContent = e.target.value;
+        });
+
+        // 编辑按钮事件
+        document.getElementById('editButton').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) {
+                alert('请先选择图片！');
+                return;
+            }
+            
+            if (!isEditing) {
+                startEditing(images[0].original);
+                this.textContent = '完成编辑';
+                this.classList.add('active');
+            } else {
+                stopEditing();
+                this.textContent = '开始编辑';
+                this.classList.remove('active');
+            }
+            isEditing = !isEditing;
+        });
+
+        // 撤销按钮事件
+        document.getElementById('undoButton').addEventListener('click', function() {
+            if (editHistory.length > 0) {
+                const canvas = document.getElementById('editCanvas');
+                const ctx = canvas.getContext('2d');
+                ctx.putImageData(editHistory.pop(), 0, 0);
+                if (editHistory.length === 0) {
+                    this.disabled = true;
+                }
+            }
+        });
+
+        // 保存按钮事件
+        document.getElementById('saveButton').addEventListener('click', function() {
+            const canvas = document.getElementById('editCanvas');
+            const img = new Image();
+            img.src = canvas.toDataURL();
+            img.onload = function() {
+                images[0].original = img;
+                stopEditing();
+                document.getElementById('editButton').textContent = '开始编辑';
+                document.getElementById('editButton').classList.remove('active');
+                isEditing = false;
+            };
+        });
+
+        // 画笔大小滑块事件
+        document.getElementById('brushSize').addEventListener('input', function(e) {
+            document.getElementById('brushSizeValue').textContent = e.target.value;
+        });
+
+        function removeWatermark(ctx, width, height, targetColor, tolerance) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            const targetRGB = hexToRgb(targetColor);
+            const toleranceValue = tolerance / 100;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                if (isColorSimilar(r, g, b, targetRGB, toleranceValue)) {
+                    data[i + 3] = 0; // 设置透明度为0
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function isColorSimilar(r, g, b, targetRGB, tolerance) {
+            const rDiff = Math.abs(r - targetRGB.r) / 255;
+            const gDiff = Math.abs(g - targetRGB.g) / 255;
+            const bDiff = Math.abs(b - targetRGB.b) / 255;
+            
+            return (rDiff + gDiff + bDiff) / 3 <= tolerance;
+        }
+
+        function processImages() {
+            const aspectRatio = document.getElementById('aspectRatio').value;
+            const maxSize = parseInt(document.getElementById('sizeValue').value);
+            const enableWatermarkRemoval = document.getElementById('enableWatermarkRemoval').checked;
+            const watermarkColor = document.getElementById('watermarkColor').value;
+            const colorTolerance = parseInt(document.getElementById('colorTolerance').value);
+
+            if (images.length === 0) {
+                alert('请先选择图片！');
+                return;
+            }
+
+            images.forEach((imageObj, index) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                let newWidth, newHeight;
+
+                // 计算新尺寸
+                if (aspectRatio === '1:1') {
+                    newWidth = newHeight = Math.min(imageObj.original.width, imageObj.original.height);
+                } else if (aspectRatio === '3:4') {
+                    if (imageObj.original.width / imageObj.original.height > 0.75) {
+                        newHeight = imageObj.original.height;
+                        newWidth = newHeight * 0.75;
+                    } else {
+                        newWidth = imageObj.original.width;
+                        newHeight = newWidth / 0.75;
+                    }
+                }
+
+                // 应用尺寸限制
+                if (Math.max(newWidth, newHeight) > maxSize) {
+                    const ratio = maxSize / Math.max(newWidth, newHeight);
+                    newWidth *= ratio;
+                    newHeight *= ratio;
+                }
+
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+
+                // 绘制图片
+                ctx.drawImage(imageObj.original, 0, 0, newWidth, newHeight);
+
+                // 应用去水印
+                if (enableWatermarkRemoval) {
+                    const options = {
+                        color: watermarkColor,
+                        tolerance: colorTolerance / 100
+                    };
+                    processWatermark(ctx, newWidth, newHeight, options);
+                }
+
+                // 下载处理后的图片
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `processed_${imageObj.file.name}`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }, 'image/png', 1.0); // 使用PNG格式以保持透明度
+            });
+        }
+
+        function startEditing(image) {
+            const container = document.getElementById('canvasContainer');
+            const canvas = document.getElementById('editCanvas');
+            const ctx = canvas.getContext('2d');
+
+            container.style.display = 'block';
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+
+            // 保存初始状态
+            editHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            
+            // 启用按钮
+            document.getElementById('undoButton').disabled = false;
+            document.getElementById('saveButton').disabled = false;
+
+            // 添加画布事件监听
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+        }
+
+        function stopEditing() {
+            const container = document.getElementById('canvasContainer');
+            container.style.display = 'none';
+            editHistory.length = 0;
+            document.getElementById('undoButton').disabled = true;
+            document.getElementById('saveButton').disabled = true;
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            [lastX, lastY] = getMousePos(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const canvas = document.getElementById('editCanvas');
+            const ctx = canvas.getContext('2d');
+            const brushSize = parseInt(document.getElementById('brushSize').value);
+            const [currentX, currentY] = getMousePos(e);
+
+            ctx.beginPath();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            [lastX, lastY] = [currentX, currentY];
+        }
+
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                const canvas = document.getElementById('editCanvas');
+                const ctx = canvas.getContext('2d');
+                editHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+                document.getElementById('undoButton').disabled = false;
+            }
+        }
+
+        function getMousePos(e) {
+            const canvas = document.getElementById('editCanvas');
+            const rect = canvas.getBoundingClientRect();
+            return [
+                e.clientX - rect.left,
+                e.clientY - rect.top
+            ];
+        }
+
+        // 添加新的水印处理函数
+        function processWatermark(ctx, width, height, options) {
+            const algorithm = document.getElementById('watermarkAlgorithm').value;
+            const sensitivity = parseInt(document.getElementById('sensitivity').value) / 100;
+            const sampleSize = parseInt(document.getElementById('sampleSize').value);
+            const repairStrength = parseInt(document.getElementById('repairStrength').value) / 100;
+
+            switch(algorithm) {
+                case 'pattern':
+                    removePatternWatermark(ctx, width, height, sensitivity, sampleSize);
+                    break;
+                case 'gradient':
+                    removeGradientWatermark(ctx, width, height, sensitivity);
+                    break;
+                case 'content-aware':
+                    contentAwareRemoval(ctx, width, height, repairStrength);
+                    break;
+                default:
+                    removeWatermark(ctx, width, height, options.color, options.tolerance);
+            }
+        }
+
+        function removePatternWatermark(ctx, width, height, sensitivity, sampleSize) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            
+            // 使用FFT检测重复图案
+            const patterns = detectRepeatingPatterns(data, width, height, sampleSize);
+            
+            // 对检测到的图案区域进行处理
+            for (let pattern of patterns) {
+                const { x, y, w, h } = pattern;
+                const surroundingPixels = getSurroundingPixels(data, width, x, y, w, h);
+                fillArea(data, width, x, y, w, h, surroundingPixels);
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function removeGradientWatermark(ctx, width, height, sensitivity) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // 检测颜色渐变
+            const gradients = detectColorGradients(data, width, height, sensitivity);
+            
+            // 使用周围颜色进行平滑过渡
+            for (let gradient of gradients) {
+                smoothGradientArea(data, width, height, gradient);
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function contentAwareRemoval(ctx, width, height, strength) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // 使用PatchMatch算法进行内容感知填充
+            const patches = findSimilarPatches(data, width, height);
+            
+            // 根据相似度进行内容填充
+            for (let patch of patches) {
+                const { target, source } = patch;
+                blendPatches(data, width, target, source, strength);
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function detectRepeatingPatterns(data, width, height, sampleSize) {
+            const patterns = [];
+            const threshold = 0.85; // 模式匹配阈值
+
+            for (let y = 0; y < height - sampleSize; y += sampleSize) {
+                for (let x = 0; x < width - sampleSize; x += sampleSize) {
+                    const pattern = getPatternSignature(data, width, x, y, sampleSize);
+                    const matches = findPatternMatches(data, width, height, pattern, sampleSize, threshold);
+                    
+                    if (matches.length > 1) { // 如果找到重复模式
+                        patterns.push({x, y, w: sampleSize, h: sampleSize});
+                    }
+                }
+            }
+
+            return mergeOverlappingPatterns(patterns);
+        }
+
+        function getPatternSignature(data, width, x, y, size) {
+            const signature = [];
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const idx = ((y + i) * width + (x + j)) * 4;
+                    signature.push(data[idx], data[idx + 1], data[idx + 2]);
+                }
+            }
+            return signature;
+        }
+
+        function findPatternMatches(data, width, height, pattern, size, threshold) {
+            const matches = [];
+            for (let y = 0; y < height - size; y += size/2) {
+                for (let x = 0; x < width - size; x += size/2) {
+                    const currentPattern = getPatternSignature(data, width, x, y, size);
+                    if (comparePatterns(pattern, currentPattern) > threshold) {
+                        matches.push({x, y});
+                    }
+                }
+            }
+            return matches;
+        }
+
+        // 添加高级设置的事件监听
+        document.getElementById('watermarkAlgorithm').addEventListener('change', function(e) {
+            const advancedSettings = document.getElementById('advancedSettings');
+            advancedSettings.style.display = e.target.value !== 'simple' ? 'block' : 'none';
+        });
+
+        ['sensitivity', 'repairStrength'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function(e) {
+                document.getElementById(id + 'Value').textContent = e.target.value;
+            });
+        });
+
+        function copyCurrentLink() {
+            // 获取当前页面URL
+            const currentUrl = window.location.href;
+            
+            // 创建临时输入框
+            const tempInput = document.createElement('input');
+            tempInput.value = currentUrl;
+            document.body.appendChild(tempInput);
+            
+            // 选择并复制
+            tempInput.select();
+            document.execCommand('copy');
+            
+            // 移除临时输入框
+            document.body.removeChild(tempInput);
+            
+            // 显示提示信息
+            const shareMessage = document.getElementById('shareMessage');
+            shareMessage.style.display = 'block';
+            setTimeout(() => {
+                shareMessage.style.display = 'none';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
