@@ -204,19 +204,22 @@
             top: 50%;
             transform: translateY(-50%);
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
+            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
             z-index: 1000;
+            width: 250px;
         }
 
         .repair-option {
             margin: 10px 0;
-            padding: 8px;
+            padding: 10px;
             border-radius: 8px;
             transition: background 0.3s;
             cursor: pointer;
+            text-align: left;
+            font-weight: 500;
         }
 
         .repair-option:hover {
@@ -226,6 +229,22 @@
         .repair-option.active {
             background: var(--primary-color);
             color: white;
+        }
+
+        .control-group {
+            margin: 15px 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: var(--secondary-color);
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
         }
 
         .canvas-wrapper {
@@ -321,20 +340,6 @@
                     <span>px</span>
                 </div>
             </div>
-
-            <div class="tool-card">
-                <h3>智能修复工具</h3>
-                <div class="control-group">
-                    <label>画笔大小：</label>
-                    <input type="range" id="brushSize" min="1" max="50" value="10">
-                    <span id="brushSizeValue">10px</span>
-                </div>
-                <div class="control-group">
-                    <button id="editButton" class="button">开始编辑</button>
-                    <button id="undoButton" class="button secondary" disabled>撤销</button>
-                    <button id="saveButton" class="button secondary" disabled>保存</button>
-                </div>
-            </div>
         </div>
 
         <div id="canvasContainer" class="canvas-container" style="display: none;">
@@ -364,23 +369,28 @@
 
     <div class="repair-tools">
         <div class="repair-option" data-tool="smart-repair">
-            <i class="fas fa-magic"></i> 智能修复
+            智能修复
         </div>
         <div class="repair-option" data-tool="texture-clone">
-            <i class="fas fa-clone"></i> 纹理克隆
+            纹理克隆
         </div>
         <div class="repair-option" data-tool="edge-repair">
-            <i class="fas fa-border-style"></i> 边缘修复
+            边缘修复
         </div>
         <div class="control-group">
             <label>画笔大小</label>
-            <input type="range" id="brushSize" min="5" max="100" value="20">
-            <span id="brushSizeValue">20px</span>
+            <input type="range" id="repairBrushSize" min="5" max="100" value="20">
+            <span id="repairBrushSizeValue">20px</span>
         </div>
         <div class="control-group">
             <label>修复强度</label>
             <input type="range" id="repairStrength" min="1" max="100" value="50">
             <span id="strengthValue">50%</span>
+        </div>
+        <div class="control-group">
+            <button id="editButton" class="button">开始编辑</button>
+            <button id="undoButton" class="button secondary" disabled>撤销</button>
+            <button id="saveButton" class="button secondary" disabled>保存</button>
         </div>
     </div>
 
@@ -486,8 +496,10 @@
         });
 
         // 画笔大小滑块事件
-        document.getElementById('brushSize').addEventListener('input', function(e) {
-            document.getElementById('brushSizeValue').textContent = e.target.value;
+        document.getElementById('repairBrushSize').addEventListener('input', function(e) {
+            const value = e.target.value;
+            document.getElementById('repairBrushSizeValue').textContent = `${value}px`;
+            repairManager.brushSize = parseInt(value);
         });
 
         function processImages() {
@@ -948,6 +960,17 @@
         // 初始化工具管理器
         const canvas = document.getElementById('editCanvas');
         const repairManager = new RepairToolManager(canvas);
+        repairManager.initialize();
+
+        // 添加工具切换事件
+        document.querySelectorAll('.repair-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.repair-option').forEach(opt => 
+                    opt.classList.remove('active'));
+                this.classList.add('active');
+                repairManager.setTool(this.dataset.tool);
+            });
+        });
     </script>
 </body>
 </html>
